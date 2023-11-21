@@ -8,28 +8,24 @@ library(here)
 
 # assume HRU table in each folder containing a binary column with changed hrus called 'changed_hru'
 
-ReadHRUoutputs<-'yes'
+ReadHRUoutputs<-'no'
 ReadRCHoutputs<-'yes'
 
-### Testing inputs ####
-# scenario_dir<-'D:\\Maumee model\\MaumeeScenarios'
-# yrs<-c(2007:2009)
+#### HABRI OLEC inputs ####
+#testing
+# scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios'
+# yrs<-c(2007:2021)
 # 
-# # Place list of scenarios here
 # scenario_list<-c('Baseline',
-#                  '1.1. Soil Testing',
-#                  '1.2. Variable Rate Fertilizer')
+#                  '1.6. Cover Crops')
 # 
-# # order of scenarios for HRU plots
-# # Have to be in reverse order bc of coord_flip
-# levels_hru_plots<-c('1.2. Variable Rate Fertilizer',
-#                     '1.1. Soil Testing')
 # 
-# # order of scenarios for RCH plots
-# # Have to be in reverse order bc of coord_flip
-# levels_rch_plots<-c('1.2. Variable Rate Fertilizer',
-#                     '1.1. Soil Testing',
-#                     'Baseline' )
+# 
+# levels_hru_plots<-c('1.6. Cover Crops')
+# 
+# 
+# levels_rch_plots<-c('1.6. Cover Crops',
+#                     'Baseline')
 
 
 #### HABRI OLEC inputs ####
@@ -37,22 +33,28 @@ ReadRCHoutputs<-'yes'
  yrs<-c(2007:2021)
 
  scenario_list<-c('Baseline',
-                  '1.1. Soil Testing',
+                  # '1.1. Soil Testing',
+                  '1.2. Variable Rate Fertilizer',
                   '1.3. Subsurface Nutrient Application',
                   '1.4. Manure Incorporation',
                   '1.6. Cover Crops')
+ 
+ # scenario_list<-c('Baseline',
+ #                  '1.3. Subsurface Nutrient Application')
 
 
 
  levels_hru_plots<-c('1.6. Cover Crops',
    '1.4. Manure Incorporation',
    '1.3. Subsurface Nutrient Application',
+   '1.2. Variable Rate Fertilizer',
    '1.1. Soil Testing')
 
 
  levels_rch_plots<-c('1.6. Cover Crops',
                      '1.4. Manure Incorporation',
                      '1.3. Subsurface Nutrient Application',
+                     '1.2. Variable Rate Fertilizer',
                      '1.1. Soil Testing',
                      'Baseline')
 
@@ -167,8 +169,7 @@ for (scen in scenario_list){
     select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
     
     gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) %>% 
-    mutate(scenario=scen) %>% 
-    mutate(value=value*runif(n=length(value), min=-1, max=1)) #TESTING 
+    mutate(scenario=scen)
   
   
   hru_output<-rbind(hru_output,add_df)
@@ -193,6 +194,17 @@ for (scen in scenario_list){
       # remove unneeded variables
       select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
       
+      # change from kg/ha/yr to kg/yr
+      rowwise() %>% 
+      mutate(totp=totp*AREAkm2*100,
+             totsolp=totsolp*AREAkm2*100,
+             totn=totn*AREAkm2*100,
+             QTILEmm=QTILEmm*AREAkm2*10^6/1000, # m3
+             SURQ_CNTmm=SURQ_CNTmm*AREAkm2*10^6/1000,
+             `SOLPkg/ha`=`SOLPkg/ha`*AREAkm2*100,
+             `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
+      ungroup() %>% 
+      
       gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) %>% 
       mutate(scenario=scen)
       
@@ -215,7 +227,12 @@ hru_output_yearly <- hru_output %>%
   mutate(scenario=factor(scenario)) %>% 
   group_by(GIS,YR,variable,scenario) %>%
   summarize(value=sum(value,na.rm=T)) %>% # yearly average of monthly values
-  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"]) 
+  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"]) %>%
+  mutate(abs_change=(value-value[scenario=="Baseline"])) %>%
+  ungroup() %>% 
+  group_by(GIS,variable,scenario) %>% 
+  mutate(percent_change=mean(percent_change)) %>%  # average change kg/yr across all years
+  mutate(abs_change=mean(abs_change)) # average change % across all years
 
 # Make this March-July summaries
 hru_output_marjul <- hru_output %>% 
@@ -223,7 +240,12 @@ hru_output_marjul <- hru_output %>%
   mutate(scenario=factor(scenario)) %>% 
   group_by(GIS,YR,variable,scenario) %>%
   summarize(value=sum(value,na.rm=T)) %>% # yearly average of monthly values
-  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"]) 
+  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"]) %>%
+  mutate(abs_change=(value-value[scenario=="Baseline"])) %>%
+  ungroup() %>% 
+  group_by(GIS,variable,scenario) %>% 
+  mutate(percent_change=mean(percent_change)) %>%  # average change kg/yr across all years
+  mutate(abs_change=mean(abs_change)) # average change % across all years
 
 
 ###### HRU plots #####
@@ -231,24 +253,15 @@ hru_output_marjul <- hru_output %>%
 variable_labs<-c('Tile discharge','Surface runoff','Surface DRP','Tile DRP','Total DRP','TP','TN')
 names(variable_labs)<-c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')
 
-#### annual #########
-#absolute values
-# hru_output_yearly %>% 
-#   ggplot(.,aes(x=scenario,y=value))+geom_boxplot()+facet_wrap(~variable,scales='free_y')+
-#   xlab("")+ylab("")+
-#   # scale_fill_manual(values=c('baseline (2013-2020)'='white', 'land management scenario (2013-2020)'='grey'))+
-#   theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
-#         panel.background = element_blank(),text = element_text(size = 16),
-#         panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
-#         legend.title = element_blank())
+##### percent change #########
 
-#percent change
+# Annual
 hru_output_yearly %>% 
   filter(!(scenario %in% 'Baseline'),  
          variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free')+
+  ggplot(.,aes(x=scenario,y=percent_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
     coord_flip()+
   # scale_fill_manual(values=c('baseline (2013-2020)'='white', 'land management scenario (2013-2020)'='grey'))+
@@ -258,16 +271,15 @@ hru_output_yearly %>%
         legend.title = element_blank())
 
 setwd(scenario_dir)
-ggsave('hru_percent_change_annual.png',last_plot(),height=100,width=300,units='mm')
+ggsave('hru_per_change_annual.png',last_plot(),height=150,width=300,units='mm')
 
-#### March-July #########
-#percent change
+# March-July
 hru_output_marjul %>% 
   filter(!(scenario %in% 'Baseline'),  
          variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free')+
+  ggplot(.,aes(x=scenario,y=percent_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
   coord_flip()+
   # scale_fill_manual(values=c('baseline (2013-2020)'='white', 'land management scenario (2013-2020)'='grey'))+
@@ -277,9 +289,56 @@ hru_output_marjul %>%
         legend.title = element_blank())
 
 setwd(scenario_dir)
-ggsave('hru_percent_change_marjul.png',last_plot(),height=100,width=300,units='mm')
+ggsave('hru_per_change_marjul.png',last_plot(),height=150,width=300,units='mm')
+
+##### absolute change #########
+
+variable_labs<-c('Tile discharge (m3)','Surface runoff (m3)','Surface DRP (kg)','Tile DRP (kg)','Total DRP (kg)','TP (kg)','TN (kg)')
+names(variable_labs)<-c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')
+
+# Annual
+hru_output_yearly %>% 
+  filter(!(scenario %in% 'Baseline'),  
+         variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
+  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+  mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
+  ggplot(.,aes(x=scenario,y=abs_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  xlab("")+ylab("Change from baseline")+
+  coord_flip()+
+  # scale_fill_manual(values=c('baseline (2013-2020)'='white', 'land management scenario (2013-2020)'='grey'))+
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        panel.background = element_blank(),text = element_text(size = 16),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        legend.title = element_blank())
+
+setwd(scenario_dir)
+ggsave('hru_abs_change_annual.png',last_plot(),height=150,width=300,units='mm')
+
+# March-July
+hru_output_marjul %>% 
+  filter(!(scenario %in% 'Baseline'),  
+         variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
+  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+  mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
+  ggplot(.,aes(x=scenario,y=abs_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  xlab("")+ylab("Change from baseline")+
+  coord_flip()+
+  # scale_fill_manual(values=c('baseline (2013-2020)'='white', 'land management scenario (2013-2020)'='grey'))+
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        panel.background = element_blank(),text = element_text(size = 16),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        legend.title = element_blank())
+
+setwd(scenario_dir)
+ggsave('hru_abs_change_marjul.png',last_plot(),height=150,width=300,units='mm')
+
+hru_output_marjul %>% 
+  filter(scenario %in% c('Baseline','1.3. Subsurface Nutrient Application'))
+write.csv(hru_output_marjul,'hru_output_marjul.csv',row.names=F)
   
 }
+
+
 ##################### RCH OUTPUTS ##########################################################
 
 
@@ -333,6 +392,7 @@ for (scen in scenario_list){
 ### process monthly to be march-July #####
 # might need to change discharge to be average instead of a sum
 
+
 mar_jul_MAW<-rch_output_monthly %>% 
    filter(MON %in% c(3:7)) %>% 
   # mutate(scenario=factor(scenario),
@@ -343,19 +403,30 @@ mar_jul_MAW<-rch_output_monthly %>%
   group_by(variable,scenario) %>% 
   summarize(value=mean(value)) %>% 
   
-  mutate(scenario=factor(scenario,ordered=T,levels=levels_rch_plots))
+  mutate(scenario=factor(scenario,ordered=T,levels=levels_rch_plots)) %>% 
+  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"])
 
 
-annual_MAW<-rch_output_monthly %>% 
+
+annual_MAW_allYrs<-rch_output_monthly %>% 
   # mutate(scenario=factor(scenario),
   #        variable=factor(variable)) %>% 
   group_by(YR,variable,scenario) %>% 
-  summarize(value=sum(value)) %>% 
+  summarize(value=sum(value)) 
+
+setwd(scenario_dir)
+annual_MAW_allYrs %>% 
+  pivot_wider(names_from=c(scenario),values_from=c(value)) %>% 
+  write.csv(.,'annual_RCH_allYrs.csv',row.names=F)
+
+# summarize all 20 years
+annual_MAW<-annual_MAW_allYrs %>% 
   ungroup() %>% 
   group_by(variable,scenario) %>% 
   summarize(value=mean(value)) %>% 
   
-  mutate(scenario=factor(scenario,ordered=T,levels=levels_rch_plots))
+  mutate(scenario=factor(scenario,ordered=T,levels=levels_rch_plots)) %>% 
+  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"])
 
 
 ###################### bias correct outputs #############################
@@ -460,44 +531,184 @@ for (obs_var in obs_lookup$obs){
 
 ### March-July plots ###
 
+max_y<-mar_jul_MAW %>% 
+  filter(variable=='MINP_OUTkg') %>% 
+  filter(value_corrected==max(value_corrected)) %>% 
+  select(value_corrected) %>% 
+  pull
+  
+
 mar_jul_DRP<-mar_jul_MAW %>% 
   filter(variable=='MINP_OUTkg') %>% 
   mutate(value_corrected=value_corrected/1000) %>% # convert to tons
-  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Metric tons DRP')+ggtitle('Average annual DRP load')+
-  scale_y_continuous(expand=c(0,0))+
+  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Metric tons DRP')+ggtitle('Average March-July DRP load')+
+  scale_y_continuous(expand=c(0,0),limits=c(0,max_y*1.15/1000))+
   geom_hline(yintercept = 186,linetype='dashed')+
+  geom_text(aes(label=paste0(round(percent_change,0),'%')),nudge_y=21,size=8)+
   coord_flip()+
   theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
         panel.background = element_blank(),text = element_text(size = 24),
         panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
-        legend.title = element_blank(),plot.margin = margin(t = 0,  # Top margin
-                                                            r = 0,  # Right margin
-                                                            b = 0,  # Bottom margin
-                                                            l = 0, unit='cm'))
-# mar_jul_DRP
+        legend.title = element_blank(),plot.margin = margin(t = 5,  # Top margin
+                                                            r = 5,  # Right margin
+                                                            b = 5,  # Bottom margin
+                                                            l = 5, unit='mm'))
+mar_jul_DRP
+
+max_y<-mar_jul_MAW %>% 
+  filter(variable=='TOT Pkg') %>% 
+  filter(value_corrected==max(value_corrected)) %>% 
+  select(value_corrected) %>% 
+  pull
 
 mar_jul_TP<-mar_jul_MAW %>% 
   filter(variable=='TOT Pkg') %>% 
   mutate(value_corrected=value_corrected/1000) %>% # convert to tons
-  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Metric tons TP')+ggtitle('Average annual TP load')+
-  scale_y_continuous(expand=c(0,0))+
+  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Metric tons TP')+ggtitle('Average March-July TP load')+
+  scale_y_continuous(expand=c(0,0),limits=c(0,max_y*1.15/1000))+
   geom_hline(yintercept = 860,linetype='dashed')+
+  geom_text(aes(label=paste0(round(percent_change,0),'%')),nudge_y=100,size=8)+
   coord_flip()+
   theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
         panel.background = element_blank(),text = element_text(size = 24),
         panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
         legend.title = element_blank(),
-        axis.text.y=element_blank(),  plot.margin = margin(t = 0,  # Top margin
-                                                                 r = 0,  # Right margin
-                                                                 b = 0,  # Bottom margin
-                                                                 l = 0))  # Left margin)
+        axis.text.y=element_blank(),  plot.margin = margin(t = 5,  # Top margin
+                                                                 r = 10,  # Right margin
+                                                                 b = 5,  # Bottom margin
+                                                                 l = 5, unit='mm'))  # Left margin)
+
+
+mar_july_plot<-grid.arrange(mar_jul_DRP,mar_jul_TP,nrow=1,widths=c(1.5,1))
+
+setwd(scenario_dir)
+ggsave('March_July_RCH.png',mar_july_plot,height=150,width=510,units='mm')
+
+####### TN ########
+max_y<-mar_jul_MAW %>% 
+  filter(variable=='TOT Nkg') %>% 
+  filter(value_corrected==max(value_corrected)) %>% 
+  select(value_corrected) %>% 
+  pull
+
+mar_jul_TN<-mar_jul_MAW %>% 
+  filter(variable=='TOT Nkg') %>% 
+  mutate(value_corrected=value_corrected/1000) %>% # convert to tons
+  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Metric tons TN')+ggtitle('Average March-July TN load')+
+  scale_y_continuous(expand=c(0,0),limits=c(0,max_y*1.15/1000))+
+  # geom_hline(yintercept = 860,linetype='dashed')+
+  geom_text(aes(label=paste0(round(percent_change,0),'%')),nudge_y=2500,size=8)+
+  coord_flip()+
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        panel.background = element_blank(),text = element_text(size = 24),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        legend.title = element_blank(),
+        plot.margin = margin(t = 5,  # Top margin
+                                                           r = 10,  # Right margin
+                                                           b = 5,  # Bottom margin
+                                                           l = 5, unit='mm'))  # Left margin)
+
+ggsave('March_July_RCH_TN.png',last_plot(),height=150,width=300,units='mm')
+
+
+#### discharge ####
+max_y<-mar_jul_MAW %>% 
+  filter(variable=='FLOW_OUTcms') %>% 
+  filter(value_corrected==max(value_corrected)) %>% 
+  select(value_corrected) %>% 
+  pull
+
+mar_jul_discharge<-mar_jul_MAW %>% 
+  filter(variable=='FLOW_OUTcms') %>% 
+  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Discharge (sum cms)')+ggtitle('Average March-July discharge')+
+  scale_y_continuous(expand=c(0,0),limits=c(0,max_y*1.15))+
+  # geom_hline(yintercept = 860,linetype='dashed')+
+  geom_text(aes(label=paste0(round(percent_change,0),'%')),nudge_y=120,size=10)+
+  coord_flip()+
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        panel.background = element_blank(),text = element_text(size = 24),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        legend.title = element_blank(),
+        plot.margin = margin(t = 5,  # Top margin
+                                                           r = 10,  # Right margin
+                                                           b = 5,  # Bottom margin
+                                                           l = 5, unit='mm'))  # Left margin)
+
+ggsave('March_July_RCH_discharge.png',last_plot(),height=150,width=300,units='mm')
 # mar_jul_TP
 
 
-mar_july_plot<-grid.arrange(mar_jul_DRP,mar_jul_TP,nrow=1,widths=c(1.75,1))
+### save csv excel format #####
+
+mar_jul_MAW<-mar_jul_MAW %>% 
+  pivot_wider(names_from=c(scenario),values_from=c(value,value_corrected,percent_change))
+
+
+write.csv(mar_jul_MAW,'MarJulRCH.csv',row.names=F)
+
+
+
+### Annual plots ###
+
+max_y<-annual_MAW %>% 
+  filter(variable=='MINP_OUTkg') %>% 
+  filter(value_corrected==max(value_corrected)) %>% 
+  select(value_corrected) %>% 
+  pull
+
+
+annual_DRP<-annual_MAW %>% 
+  filter(variable=='MINP_OUTkg') %>% 
+  mutate(value_corrected=value_corrected/1000) %>% # convert to tons
+  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Metric tons DRP')+ggtitle('Average annual DRP load')+
+  scale_y_continuous(expand=c(0,0),limits=c(0,max_y*1.15/1000))+
+  geom_hline(yintercept = 401,linetype='dashed')+
+  geom_text(aes(label=paste0(round(percent_change,0),'%')),nudge_y=50,size=10)+
+  coord_flip()+
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        panel.background = element_blank(),text = element_text(size = 24),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        legend.title = element_blank(),plot.margin = margin(t = 5,  # Top margin
+                                                            r = 5,  # Right margin
+                                                            b = 5,  # Bottom margin
+                                                            l = 5, unit='mm'))
+# annual_DRP
+
+max_y<-annual_MAW %>% 
+  filter(variable=='TOT Pkg') %>% 
+  filter(value_corrected==max(value_corrected)) %>% 
+  select(value_corrected) %>% 
+  pull
+
+annual_TP<-annual_MAW %>% 
+  filter(variable=='TOT Pkg') %>% 
+  mutate(value_corrected=value_corrected/1000) %>% # convert to tons
+  ggplot(.,aes(x=scenario,y=value_corrected)) + geom_bar(stat='identity',colour='black',fill='olivedrab4')+xlab("")+ylab('Metric tons TP')+ggtitle('Average annual TP load')+
+  scale_y_continuous(expand=c(0,0),limits=c(0,max_y*1.15/1000))+
+  geom_hline(yintercept = 1897,linetype='dashed')+
+  geom_text(aes(label=paste0(round(percent_change,0),'%')),nudge_y=190,size=10)+
+  coord_flip()+
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        panel.background = element_blank(),text = element_text(size = 24),
+        panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+        legend.title = element_blank(),
+        axis.text.y=element_blank(),  plot.margin = margin(t = 5,  # Top margin
+                                                           r = 10,  # Right margin
+                                                           b = 5,  # Bottom margin
+                                                           l = 5, unit='mm'))  # Left margin)
+annual_TP
+
+
+annual_plot<-grid.arrange(annual_DRP,annual_TP,nrow=1,widths=c(1.5,1))
 
 setwd(scenario_dir)
-ggsave('March_July_RCH.png',mar_july_plot,height=150,width=500,units='mm')
+ggsave('annual_RCH.png',annual_plot,height=150,width=510,units='mm')
+
+# excel format
+annual_MAW<-annual_MAW %>% 
+  pivot_wider(names_from=c(scenario),values_from=c(value,value_corrected,percent_change))
+
+write.csv(annual_MAW,'annualRCH.csv',row.names=F)
 
 
 write.csv(obs_lookup,'bias_c_factors.csv')
