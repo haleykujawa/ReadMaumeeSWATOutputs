@@ -4,11 +4,10 @@ library(tidyverse)
 library(gridExtra)
 library(here)
 
-# Add total DRP (tile + surface)
 
 # assume HRU table in each folder containing a binary column with changed hrus called 'changed_hru'
 
-ReadHRUoutputs<-'no'
+ReadHRUoutputs<-'yes'
 ReadRCHoutputs<-'yes'
 
 #### HABRI OLEC inputs ####
@@ -167,6 +166,17 @@ for (scen in scenario_list){
     
     # remove unneeded variables
     select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
+    
+    # change from kg/ha/yr to kg/yr
+    rowwise() %>% 
+    mutate(totp=totp*AREAkm2*100,
+           totsolp=totsolp*AREAkm2*100,
+           totn=totn*AREAkm2*100,
+           QTILEmm=QTILEmm*AREAkm2*10^6/1000, # m3
+           SURQ_CNTmm=SURQ_CNTmm*AREAkm2*10^6/1000,
+           `SOLPkg/ha`=`SOLPkg/ha`*AREAkm2*100,
+           `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
+    ungroup() %>% 
     
     gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) %>% 
     mutate(scenario=scen)
@@ -340,7 +350,7 @@ write.csv(hru_output_marjul,'hru_output_marjul.csv',row.names=F)
 
 
 ##################### RCH OUTPUTS ##########################################################
-
+if (ReadRCHoutputs=='yes'){
 
 rch_headers<-c('RCH'      ,'GIS',   'MON',     'AREAkm2',  'FLOW_INcms', 'FLOW_OUTcms',     'EVAPcms',    
                'TLOSScms',  'SED_INtons', 'SED_OUTtons', 'SEDCONCmg/kg',   'ORGN_INkg',  'ORGN_OUTkg',   'ORGP_INkg',  'ORGP_OUTkg',    
@@ -712,3 +722,4 @@ write.csv(annual_MAW,'annualRCH.csv',row.names=F)
 
 
 write.csv(obs_lookup,'bias_c_factors.csv')
+}
