@@ -28,29 +28,41 @@ ReadRCHoutputs<-'yes'
 
 
 #### HABRI OLEC inputs ####
- scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios'
+ scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios_DEC'
  yrs<-c(2007:2021)
 
  scenario_list<-c('Baseline',
                   # '1.1. Soil Testing',
-                  '1.2. Variable Rate Fertilizer',
-                  '1.3. Subsurface Nutrient Application',
-                  '1.4. Manure Incorporation',
-                  '1.6. Cover Crops')
+                  # '1.2. Variable Rate Fertilizer',
+                  # '1.3. Subsurface Nutrient Application',
+                  # '1.4. Manure Incorporation',
+                  # '1.6. Cover Crops',
+                  # '1.7. Drainage water management',
+                  # '1.8. Edge-of-field buffers')
+                  # '1.9. Wetlands')
+                  'Wetlands lit values')
  
  # scenario_list<-c('Baseline',
  #                  '1.3. Subsurface Nutrient Application')
 
 
 
- levels_hru_plots<-c('1.6. Cover Crops',
+ levels_hru_plots<-c('Wetlands lit values',
+                     '1.9. Wetlands',
+                     '1.8. Edge-of-field buffers',
+                     '1.7. Drainage water management',
+                     '1.6. Cover Crops',
    '1.4. Manure Incorporation',
    '1.3. Subsurface Nutrient Application',
    '1.2. Variable Rate Fertilizer',
    '1.1. Soil Testing')
 
 
- levels_rch_plots<-c('1.6. Cover Crops',
+ levels_rch_plots<-c('Wetlands lit values',
+                     '1.9. Wetlands',
+                     '1.8. Edge-of-field buffers',
+                     '1.7. Drainage water management',
+                     '1.6. Cover Crops',
                      '1.4. Manure Incorporation',
                      '1.3. Subsurface Nutrient Application',
                      '1.2. Variable Rate Fertilizer',
@@ -143,7 +155,7 @@ for (scen in scenario_list){
   hru_table_name<-list.files(wd)[grep('.txt',list.files(wd))] # assume hru table is only txt in folder
     
   hru_table<-read.csv(paste0(wd,'//',hru_table_name),sep="\t") %>% 
-    select(HRU_GIS,colnames(.)[grep('scen_change_HRU',colnames(.),ignore.case=T)]) %>% 
+    select(HRU_GIS,colnames(.)[grep('scen_change',colnames(.),ignore.case=T)],SOL_SOLP_0_5) %>% 
     rename('Scen_Change_HRU'=2)
   
   add_df<-readSWATtxt(wd,headers_hru,'output.hru') %>% 
@@ -157,7 +169,7 @@ for (scen in scenario_list){
     select(-Scen_Change_HRU) %>% 
     
     #add year column, assume monthly data
-    mutate(YR=rep(yrs,each=length(unique(GIS))*12)) %>% 
+    # mutate(YR=rep(yrs,each=length(unique(GIS))*12)) %>% 
     
     # total P and N
     mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TILEPkg/ha`+`P_GWkg/ha`,
@@ -178,7 +190,7 @@ for (scen in scenario_list){
            `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
     ungroup() %>% 
     
-    gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) %>% 
+    gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2) %>% #,-YR,-SOL_SOLP_0_5
     mutate(scenario=scen)
   
   
@@ -190,11 +202,16 @@ for (scen in scenario_list){
     
     # baseline data
     
+    # hru_table<-read.csv(paste0(wd,'//',hru_table_name),sep=",") %>% 
+    #   select(HRU_GIS,SOL_SOLP_0_5)
+    
     add_df<-readSWATtxt(wd,headers_hru,'output.hru') %>% 
       mutate(across(!LULC, as.numeric)) %>% # convert everything except lulc to numeric
       
+      # left_join(.,hru_table,by=c("GIS"="HRU_GIS")) %>% # join features from HRU table
+      
       #add year column, assume monthly data
-      mutate(YR=rep(yrs,each=length(unique(GIS))*12)) %>% 
+      # mutate(YR=rep(yrs,each=length(unique(GIS))*12)) %>% 
       
       # total P and N
       mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TILEPkg/ha`+`P_GWkg/ha`,
@@ -215,7 +232,7 @@ for (scen in scenario_list){
              `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
       ungroup() %>% 
       
-      gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) %>% 
+      gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2) %>% #,-YR,-SOL_SOLP_0_5
       mutate(scenario=scen)
       
       
@@ -234,6 +251,8 @@ for (scen in scenario_list){
 ###### Calculate percent change for each scenario as compared to baseline #######
 
 hru_output_yearly <- hru_output %>% 
+  filter(MON %in% yrs) %>% 
+  rename('YR'='MON') %>% 
   mutate(scenario=factor(scenario)) %>% 
   group_by(GIS,YR,variable,scenario) %>%
   summarize(value=sum(value,na.rm=T)) %>% # yearly average of monthly values
@@ -246,6 +265,8 @@ hru_output_yearly <- hru_output %>%
 
 # Make this March-July summaries
 hru_output_marjul <- hru_output %>% 
+  filter(!(MON %in% yrs)) %>% 
+  mutate(YR=rep(yrs,each=12*length(unique(GIS)))) %>% 
   filter(MON %in% c(3:7)) %>% 
   mutate(scenario=factor(scenario)) %>% 
   group_by(GIS,YR,variable,scenario) %>%
@@ -268,7 +289,8 @@ names(variable_labs)<-c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp
 # Annual
 hru_output_yearly %>% 
   filter(!(scenario %in% 'Baseline'),  
-         variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
+         variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'),
+         ) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
   ggplot(.,aes(x=scenario,y=percent_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
@@ -300,6 +322,45 @@ hru_output_marjul %>%
 
 setwd(scenario_dir)
 ggsave('hru_per_change_marjul.png',last_plot(),height=150,width=300,units='mm')
+
+
+##### percent change vs. soil test p #########
+
+# # Annual
+# hru_output_yearly %>% 
+#   filter(!(scenario %in% 'Baseline'),  
+#          variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
+#   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+#   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
+#   ggplot(.,aes(x=SOL_SOLP_0_5,y=percent_change))+geom_point()+facet_grid(scenario~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+#   xlab("")+ylab("Change from baseline (%)")+
+#   coord_flip()+
+#   # scale_fill_manual(values=c('baseline (2013-2020)'='white', 'land management scenario (2013-2020)'='grey'))+
+#   theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+#         panel.background = element_blank(),text = element_text(size = 16),
+#         panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+#         legend.title = element_blank())
+# 
+# setwd(scenario_dir)
+# ggsave('hru_per_change_annual_v_STP.png',last_plot(),height=150,width=300,units='mm')
+# 
+# # March-July
+# hru_output_marjul %>% 
+#   filter(!(scenario %in% 'Baseline'),  
+#          variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
+#   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+#   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
+#   ggplot(.,aes(x=scenario,y=percent_change))+geom_boxplot()+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+#   xlab("")+ylab("Change from baseline (%)")+
+#   coord_flip()+
+#   # scale_fill_manual(values=c('baseline (2013-2020)'='white', 'land management scenario (2013-2020)'='grey'))+
+#   theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+#         panel.background = element_blank(),text = element_text(size = 16),
+#         panel.border = element_rect(colour = "black", fill=NA, linewidth=1),
+#         legend.title = element_blank())
+# 
+# setwd(scenario_dir)
+# ggsave('hru_per_change_marjul.png',last_plot(),height=150,width=300,units='mm')
 
 ##### absolute change #########
 
@@ -342,9 +403,9 @@ hru_output_marjul %>%
 setwd(scenario_dir)
 ggsave('hru_abs_change_marjul.png',last_plot(),height=150,width=300,units='mm')
 
-hru_output_marjul %>% 
-  filter(scenario %in% c('Baseline','1.3. Subsurface Nutrient Application'))
-write.csv(hru_output_marjul,'hru_output_marjul.csv',row.names=F)
+# hru_output_marjul %>% 
+#   filter(scenario %in% c('Baseline','1.3. Subsurface Nutrient Application'))
+# write.csv(hru_output_marjul,'hru_output_marjul.csv',row.names=F)
   
 }
 
