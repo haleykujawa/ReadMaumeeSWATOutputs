@@ -39,7 +39,7 @@ ReadRCHoutputs<-'yes'
                   # '1.6. Cover Crops',
                   # '1.7. Drainage water management',
                   # '1.8. Edge-of-field buffers')
-                  # '1.9. Wetlands')
+                  '1.9. Wetlands',
                   'Wetlands lit values')
  
  # scenario_list<-c('Baseline',
@@ -144,18 +144,59 @@ if (ReadHRUoutputs == 'yes'){
 ###### Combine output.hru from all baseline and scenario folders ############
 hru_output<-c()
 
-for (scen in scenario_list){
+### load baseline data ###
+# baseline data
+
+# hru_table<-read.csv(paste0(wd,'//',hru_table_name),sep=",") %>% 
+#   select(HRU_GIS,SOL_SOLP_0_5)
+
+baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'output.hru') %>% 
+  mutate(across(!LULC, as.numeric)) %>% # convert everything except lulc to numeric
+  
+  # left_join(.,hru_table,by=c("GIS"="HRU_GIS")) %>% # join features from HRU table
+  
+  #add year column, assume monthly data
+  mutate(YR=c(as.character(rep(yrs,each=length(unique(GIS))*12+length(unique(GIS)))),rep('all years',length(unique(GIS))))) %>%
+  
+  # total P and N
+  mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TILEPkg/ha`+`P_GWkg/ha`,
+         totsolp=`SOLPkg/ha`+`TILEPkg/ha`,
+         totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% 
+  
+  # remove unneeded variables
+  select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
+  
+  # add yr column
+  mutate(yr=rbind(rep(yrs,nrow(unique(GIS))*12+nrow(unique(GIS))),rep('all years',unique(GIS)))) %>% 
+  
+  # change from kg/ha/yr to kg/yr
+  rowwise() %>% 
+  mutate(totp=totp*AREAkm2*100,
+         totsolp=totsolp*AREAkm2*100,
+         totn=totn*AREAkm2*100,
+         QTILEmm=QTILEmm*AREAkm2*10^6/1000, # m3
+         SURQ_CNTmm=SURQ_CNTmm*AREAkm2*10^6/1000,
+         `SOLPkg/ha`=`SOLPkg/ha`*AREAkm2*100,
+         `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
+  ungroup() %>% 
+  
+  gather(variable,value_b,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2) #%>% #,-YR,-SOL_SOLP_0_5
+  # mutate(scenario=scen)
+
+
+
+# compare scenario data to the baseline
+
+for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
   
   wd<-paste0(scenario_dir,'//',scen)
   
   # if it is a scenario, read hru table to filter only changed HRUs
-  
-  if (!grepl('Baseline',scen)){
     
   hru_table_name<-list.files(wd)[grep('.txt',list.files(wd))] # assume hru table is only txt in folder
     
   hru_table<-read.csv(paste0(wd,'//',hru_table_name),sep="\t") %>% 
-    select(HRU_GIS,colnames(.)[grep('scen_change',colnames(.),ignore.case=T)],SOL_SOLP_0_5) %>% 
+    select(HRU_GIS,colnames(.)[grep('scen_change',colnames(.),ignore.case=T)]) %>% 
     rename('Scen_Change_HRU'=2)
   
   add_df<-readSWATtxt(wd,headers_hru,'output.hru') %>% 
@@ -164,12 +205,12 @@ for (scen in scenario_list){
     mutate(across(!LULC, as.numeric)) %>% # convert everything except lulc to numeric
     left_join(.,hru_table,by=c("GIS"="HRU_GIS")) %>% 
     
-    
-    filter(Scen_Change_HRU==1) %>% 
-    select(-Scen_Change_HRU) %>% 
-    
     #add year column, assume monthly data
-    # mutate(YR=rep(yrs,each=length(unique(GIS))*12)) %>% 
+    mutate(YR=c(as.character(rep(yrs,each=length(unique(GIS))*12+length(unique(GIS)))),rep('all years',length(unique(GIS))))) %>%
+    
+    
+    # filter(Scen_Change_HRU==1) %>% 
+    # select(-Scen_Change_HRU) %>% 
     
     # total P and N
     mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TILEPkg/ha`+`P_GWkg/ha`,
@@ -190,59 +231,43 @@ for (scen in scenario_list){
            `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
     ungroup() %>% 
     
-    gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2) %>% #,-YR,-SOL_SOLP_0_5
-    mutate(scenario=scen)
+    gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-Scen_Change_HRU)  #,-YR,-SOL_SOLP_0_5
+    # mutate(scenario=scen)
   
   
-  hru_output<-rbind(hru_output,add_df)
+  hru_output<-left_join(baseline_hru,add_df,by=c("variable","LULC","HRU","GIS","SUB","MGT","MON","AREAkm2"))
   
   rm(add_df,hru_table) # clear memory 
   
-  }else{
+  
+#### process total difference in loss from only changed HRUs and all HRUs #####
+  
+  hru_annual<-hru_output %>% 
+    filter(MON %in% yrs) %>% 
+    rename('YR'='MON') %>% 
+    group_by(YR,variable,scen) %>% # remove grouping by GIS 
+    summarize(value=sum(value,na.rm=T)) %>% # yearly average of monthly values
+    mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"])
+  
+  hru_marjul<-hru_output %>% 
+    filter(!(MON %in% yrs)) %>% 
+    mutate(YR=rep(yrs,each=12*length(unique(RCH)))) %>% 
     
-    # baseline data
+  
+  
+  
+
     
-    # hru_table<-read.csv(paste0(wd,'//',hru_table_name),sep=",") %>% 
-    #   select(HRU_GIS,SOL_SOLP_0_5)
-    
-    add_df<-readSWATtxt(wd,headers_hru,'output.hru') %>% 
-      mutate(across(!LULC, as.numeric)) %>% # convert everything except lulc to numeric
-      
-      # left_join(.,hru_table,by=c("GIS"="HRU_GIS")) %>% # join features from HRU table
-      
-      #add year column, assume monthly data
-      # mutate(YR=rep(yrs,each=length(unique(GIS))*12)) %>% 
-      
-      # total P and N
-      mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TILEPkg/ha`+`P_GWkg/ha`,
-             totsolp=`SOLPkg/ha`+`TILEPkg/ha`,
-             totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% 
-      
-      # remove unneeded variables
-      select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
-      
-      # change from kg/ha/yr to kg/yr
-      rowwise() %>% 
-      mutate(totp=totp*AREAkm2*100,
-             totsolp=totsolp*AREAkm2*100,
-             totn=totn*AREAkm2*100,
-             QTILEmm=QTILEmm*AREAkm2*10^6/1000, # m3
-             SURQ_CNTmm=SURQ_CNTmm*AREAkm2*10^6/1000,
-             `SOLPkg/ha`=`SOLPkg/ha`*AREAkm2*100,
-             `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
-      ungroup() %>% 
-      
-      gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2) %>% #,-YR,-SOL_SOLP_0_5
-      mutate(scenario=scen)
+   
       
       
-    
-    hru_output<-rbind(hru_output,add_df)
-    
-    rm(add_df)
+    # 
+    # hru_output<-rbind(hru_output,add_df)
+    # 
+    # rm(add_df)
     
     
-  }
+
   
   print(paste(scen, 'loaded'))
 }
@@ -254,9 +279,9 @@ hru_output_yearly <- hru_output %>%
   filter(MON %in% yrs) %>% 
   rename('YR'='MON') %>% 
   mutate(scenario=factor(scenario)) %>% 
-  group_by(GIS,YR,variable,scenario) %>%
+  group_by(YR,variable,scenario) %>% # remove grouping by GIS 
   summarize(value=sum(value,na.rm=T)) %>% # yearly average of monthly values
-  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"]) %>%
+  mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"]) %>% 
   mutate(abs_change=(value-value[scenario=="Baseline"])) %>%
   ungroup() %>% 
   group_by(GIS,variable,scenario) %>% 
@@ -266,7 +291,7 @@ hru_output_yearly <- hru_output %>%
 # Make this March-July summaries
 hru_output_marjul <- hru_output %>% 
   filter(!(MON %in% yrs)) %>% 
-  mutate(YR=rep(yrs,each=12*length(unique(GIS)))) %>% 
+  mutate(YR=rep(yrs,each=12*length(unique(GIS))),length(unique(GIS))) %>% # this needs fixed
   filter(MON %in% c(3:7)) %>% 
   mutate(scenario=factor(scenario)) %>% 
   group_by(GIS,YR,variable,scenario) %>%
