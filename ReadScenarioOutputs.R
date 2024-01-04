@@ -166,8 +166,6 @@ baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'outp
   # remove unneeded variables
   select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
   
-  # add yr column
-  mutate(yr=rbind(rep(yrs,nrow(unique(GIS))*12+nrow(unique(GIS))),rep('all years',unique(GIS)))) %>% 
   
   # change from kg/ha/yr to kg/yr
   rowwise() %>% 
@@ -180,7 +178,7 @@ baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'outp
          `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
   ungroup() %>% 
   
-  gather(variable,value_b,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2) #%>% #,-YR,-SOL_SOLP_0_5
+  gather(variable,value_b,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) #%>% #,-YR,-SOL_SOLP_0_5
   # mutate(scenario=scen)
 
 
@@ -231,27 +229,28 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
            `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
     ungroup() %>% 
     
-    gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-Scen_Change_HRU)  #,-YR,-SOL_SOLP_0_5
+    gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-Scen_Change_HRU,-YR)  #,-YR,-SOL_SOLP_0_5
     # mutate(scenario=scen)
   
   
-  hru_output<-left_join(baseline_hru,add_df,by=c("variable","LULC","HRU","GIS","SUB","MGT","MON","AREAkm2"))
+  hru_output<-left_join(baseline_hru,add_df,by=c("variable","LULC","HRU","GIS","SUB","MGT","MON","YR","AREAkm2"))
   
   rm(add_df,hru_table) # clear memory 
   
   
 #### process total difference in loss from only changed HRUs and all HRUs #####
   
-  hru_annual<-hru_output %>% 
-    filter(MON %in% yrs) %>% 
-    rename('YR'='MON') %>% 
-    group_by(YR,variable,scen) %>% # remove grouping by GIS 
-    summarize(value=sum(value,na.rm=T)) %>% # yearly average of monthly values
-    mutate(percent_change=(value-value[scenario=="Baseline"])*100/value[scenario=="Baseline"])
+  
+  # sum annual amount for all HRUs, take avg of all years, calculate % difference
+  hru_annual_changeHRU<-hru_output %>% 
+    filter(YR %in% 'all years' , Scen_Change_HRU==1) %>% 
+    group_by(variable,YR) %>% # remove grouping by GIS
+    summarize(value=sum(value),value_b=sum(value_b)) %>% # combine outputs from all HRUs
+    mutate(percent_change=(value-value_b)*100/value_b)
   
   hru_marjul<-hru_output %>% 
     filter(!(MON %in% yrs)) %>% 
-    mutate(YR=rep(yrs,each=12*length(unique(RCH)))) %>% 
+    mutate(YR=rep(yrs,each=12*length(unique(GIS)))) %>% 
     
   
   
