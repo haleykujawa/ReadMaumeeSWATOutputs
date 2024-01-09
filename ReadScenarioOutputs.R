@@ -8,7 +8,9 @@ library(here)
 # assume HRU table in each folder containing a binary column with changed hrus called 'changed_hru'
 
 ReadHRUoutputs<-'yes'
-ReadRCHoutputs<-'yes'
+ReadRCHoutputs<-'no'
+
+run_key<-'' # save as unique outputs so they don't get overwritten
 
 #### HABRI OLEC inputs ####
 #testing
@@ -163,8 +165,8 @@ baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'outp
   mutate(YR=c(as.character(rep(yrs,each=length(unique(GIS))*12+length(unique(GIS)))),rep('all years',length(unique(GIS))))) %>%
   
   # total P and N
-  mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TILEPkg/ha`+`P_GWkg/ha`,
-         totsolp=`SOLPkg/ha`+`TILEPkg/ha`,
+  mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TVAPkg/ha`+`P_GWkg/ha`,
+         totsolp=`SOLPkg/ha`+`TVAPkg/ha`,
          totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% 
   
   # remove unneeded variables
@@ -179,7 +181,7 @@ baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'outp
          QTILEmm=QTILEmm*AREAkm2*10^6/1000, # m3
          SURQ_CNTmm=SURQ_CNTmm*AREAkm2*10^6/1000,
          `SOLPkg/ha`=`SOLPkg/ha`*AREAkm2*100,
-         `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
+         `TVAPkg/ha`=`TVAPkg/ha`*AREAkm2*100) %>% 
   ungroup() %>% 
   
   gather(variable,value_b,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) #%>% #,-YR,-SOL_SOLP_0_5
@@ -219,8 +221,8 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
     # select(-Scen_Change_HRU) %>% 
     
     # total P and N
-    mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TILEPkg/ha`+`P_GWkg/ha`,
-           totsolp=`SOLPkg/ha`+`TILEPkg/ha`,
+    mutate(totp=`SOLPkg/ha`+`ORGPkg/ha`+`SEDPkg/ha`+`TVAPkg/ha`+`P_GWkg/ha`,
+           totsolp=`SOLPkg/ha`+`TVAPkg/ha`,
            totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% # extra slide 
     
     # remove unneeded variables
@@ -234,7 +236,7 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
            QTILEmm=QTILEmm*AREAkm2*10^6/1000, # m3
            SURQ_CNTmm=SURQ_CNTmm*AREAkm2*10^6/1000,
            `SOLPkg/ha`=`SOLPkg/ha`*AREAkm2*100,
-           `TILEPkg/ha`=`TILEPkg/ha`*AREAkm2*100) %>% 
+           `TVAPkg/ha`=`TVAPkg/ha`*AREAkm2*100) %>% 
     ungroup() %>% 
     
     gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-Scen_Change_HRU,-YR)  #,-YR,-SOL_SOLP_0_5
@@ -317,16 +319,16 @@ rm(baseline_hru)
 ###### HRU plots #####
 
 variable_labs<-c('Tile discharge','Surface runoff','Surface DRP','Tile DRP','Total DRP','TP','TN')
-names(variable_labs)<-c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')
+names(variable_labs)<-c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')
 
 ##### percent change #########
 
 # Annual percent change
 hru_annual %>% 
-  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
-  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
+  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position=position_dodge(0.5),color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
   scale_fill_manual(values=c('all HRUs'='grey','changed HRUs only'='white'))+
     coord_flip()+
@@ -337,14 +339,14 @@ hru_annual %>%
         legend.title = element_blank())
 
 setwd(scenario_dir)
-ggsave('hru_per_change_annual.png',last_plot(),height=150,width=300,units='mm')
+ggsave(paste0('hru_per_change_annual_',run_key,'.png'),last_plot(),height=150,width=300,units='mm')
 
 # Mar-July percent change
 hru_marjul %>% 
-  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
-  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
+  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position=position_dodge(0.5),color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
   scale_fill_manual(values=c('all HRUs'='grey','changed HRUs only'='white'))+
   coord_flip()+
@@ -355,19 +357,19 @@ hru_marjul %>%
         legend.title = element_blank())
 
 setwd(scenario_dir)
-ggsave('hru_per_change_marjul.png',last_plot(),height=150,width=300,units='mm')
+ggsave(paste0('hru_per_change_marjul_',run_key,'.png'),last_plot(),height=150,width=300,units='mm')
 
 ##### Absolute values ############
 
 variable_labs<-c('Tile discharge (m3)','Surface runoff (m3)','Surface DRP (kg)','Tile DRP (kg)','Total DRP (kg)','TP (kg)','TN (kg)')
-names(variable_labs)<-c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')
+names(variable_labs)<-c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')
 
 # have to compare like this bc when looking at only the changed HRUs the baseline will be different for each scenario
 hru_annual %>% 
   select(-percent_change) %>% 
   gather(b_s,value,-scenario,-HRU,-variable) %>% #baseline 
-  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
-  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
+  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
   ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
   xlab("")+ylab("Average annual total loss from changed HRUs")+
@@ -381,13 +383,13 @@ hru_annual %>%
         axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 setwd(scenario_dir)
-ggsave('hru_annual_abs.png',last_plot(),height=150,width=500,units='mm')
+ggsave(paste0('hru_annual_abs_',run_key,'.png'),last_plot(),height=150,width=500,units='mm')
 
 hru_marjul %>% 
   select(-percent_change) %>% 
   gather(b_s,value,-scenario,-HRU,-variable) %>% #baseline 
-  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn')) %>%
-  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TILEPkg/ha','totsolp','totp','totn'))) %>% 
+  filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
+  mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
   ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
   xlab("")+ylab("Average March-July total loss from changed HRUs")+
@@ -401,10 +403,10 @@ hru_marjul %>%
         axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 setwd(scenario_dir)
-ggsave('hru_marjul_abs.png',last_plot(),height=150,width=500,units='mm')
+ggsave(paste0('hru_marjul_abs',run_key,'.png'),last_plot(),height=150,width=500,units='mm')
 
-write.csv(hru_annual,'hru_annual.csv',row.names=F)
-write.csv(hru_marjul,'hru_marjul.csv',row.names=F)
+write.csv(hru_annual,paste0('hru_annual_',run_key,'.csv'),row.names=F)
+write.csv(hru_marjul,paste0('hru_marjul_',run_key,'.csv'),row.names=F)
   
 }
 
@@ -652,7 +654,7 @@ mar_jul_TP<-mar_jul_MAW %>%
 mar_july_plot<-grid.arrange(mar_jul_DRP,mar_jul_TP,nrow=1,widths=c(1.5,1))
 
 setwd(scenario_dir)
-ggsave('March_July_RCH.png',mar_july_plot,height=150,width=510,units='mm')
+ggsave(paste0('March_July_RCH',run_key,'.png'),mar_july_plot,height=150,width=510,units='mm')
 
 ####### TN ########
 max_y<-mar_jul_MAW %>% 
@@ -678,7 +680,7 @@ mar_jul_TN<-mar_jul_MAW %>%
                                                            b = 5,  # Bottom margin
                                                            l = 5, unit='mm'))  # Left margin)
 
-ggsave('March_July_RCH_TN.png',last_plot(),height=150,width=300,units='mm')
+ggsave(paste0('March_July_RCH_TN',run_key,'.png'),last_plot(),height=150,width=300,units='mm')
 
 
 #### discharge ####
@@ -704,7 +706,7 @@ mar_jul_discharge<-mar_jul_MAW %>%
                                                            b = 5,  # Bottom margin
                                                            l = 5, unit='mm'))  # Left margin)
 
-ggsave('March_July_RCH_discharge.png',last_plot(),height=150,width=300,units='mm')
+ggsave(paste0('March_July_RCH_discharge_',run_key,'.png'),last_plot(),height=150,width=300,units='mm')
 # mar_jul_TP
 
 
@@ -714,7 +716,7 @@ mar_jul_MAW<-mar_jul_MAW %>%
   pivot_wider(names_from=c(scenario),values_from=c(value,value_corrected,percent_change))
 
 
-write.csv(mar_jul_MAW,'MarJulRCH.csv',row.names=F)
+write.csv(mar_jul_MAW,paste0('MarJulRCH_',run_key,'.csv'),row.names=F)
 
 
 
@@ -772,13 +774,13 @@ annual_TP
 annual_plot<-grid.arrange(annual_DRP,annual_TP,nrow=1,widths=c(1.5,1))
 
 setwd(scenario_dir)
-ggsave('annual_RCH.png',annual_plot,height=150,width=510,units='mm')
+ggsave(paste0('annual_RCH', run_key,'.png'),annual_plot,height=150,width=510,units='mm')
 
 # excel format
 annual_MAW<-annual_MAW %>% 
   pivot_wider(names_from=c(scenario),values_from=c(value,value_corrected,percent_change))
 
-write.csv(annual_MAW,'annualRCH.csv',row.names=F)
+write.csv(annual_MAW,paste0('annualRCH_',run_key,'.csv'),row.names=F)
 
 
 write.csv(obs_lookup,'bias_c_factors.csv')
