@@ -258,7 +258,7 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
     group_by(variable) %>% 
     summarize(value=mean(value),value_b=mean(value_b)) %>% # average annual sum of outputs from all HRUs
     mutate(percent_change=(value-value_b)*100/value_b) %>% 
-    mutate(scenario=scen,HRU='all HRUs')
+    mutate(scenario=scen,HRU='changed HRUs only')
   
   hru_annual<-rbind(hru_annual,add_df)
   rm(add_df)
@@ -272,7 +272,7 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
     group_by(variable) %>% 
     summarize(value=mean(value),value_b=mean(value_b)) %>% # average annual sum of outputs from all HRUs
     mutate(percent_change=(value-value_b)*100/value_b) %>% 
-    mutate(scenario=scen,HRU='changed HRUs only')
+    mutate(scenario=scen,HRU='all HRUs')
   
   hru_annual<-rbind(hru_annual,add_df)
   rm(add_df)
