@@ -8,7 +8,7 @@ library(here)
 # assume HRU table in each folder containing a binary column with changed hrus called 'changed_hru'
 
 ReadHRUoutputs<-'yes'
-ReadRCHoutputs<-'no'
+ReadRCHoutputs<-'yes'
 
 #### HABRI OLEC inputs ####
 #testing
@@ -28,57 +28,55 @@ ReadRCHoutputs<-'no'
 
 
 #### testing w 2 yr hru files #####
-yrs<-c(2003:2004)
-scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_test'
-
-scenario_list<-c('Baseline','Scenario 1', 'Scenario 2')
-
-levels_hru_plots<-c('Scenario 1','Scenario 2')
+# yrs<-c(2003:2004)
+# scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_test'
+# 
+# scenario_list<-c('Baseline','Scenario 1', 'Scenario 2')
+# 
+# levels_hru_plots<-c('Scenario 1','Scenario 2')
 
 
 #### HABRI OLEC inputs ####
- # scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios_DEC'
- # yrs<-c(2007:2021)
- # 
- # scenario_list<-c('Baseline',
- #                  # '1.1. Soil Testing',
- #                  # '1.2. Variable Rate Fertilizer',
- #                  # '1.3. Subsurface Nutrient Application',
- #                  # '1.4. Manure Incorporation',
- #                  # '1.6. Cover Crops',
- #                  # '1.7. Drainage water management',
- #                  # '1.8. Edge-of-field buffers')
- #                  '1.9. Wetlands',
- #                  'Wetlands lit values')
- # 
- # 
- # 
- # levels_hru_plots<-c('Wetlands lit values',
- #                     '1.9. Wetlands',
- #                     '1.8. Edge-of-field buffers',
- #                     '1.7. Drainage water management',
- #                     '1.6. Cover Crops',
- #   '1.4. Manure Incorporation',
- #   '1.3. Subsurface Nutrient Application',
- #   '1.2. Variable Rate Fertilizer',
- #   '1.1. Soil Testing')
- # 
- # 
- # levels_rch_plots<-c('Wetlands lit values',
- #                     '1.9. Wetlands',
- #                     '1.8. Edge-of-field buffers',
- #                     '1.7. Drainage water management',
- #                     '1.6. Cover Crops',
- #                     '1.4. Manure Incorporation',
- #                     '1.3. Subsurface Nutrient Application',
- #                     '1.2. Variable Rate Fertilizer',
- #                     '1.1. Soil Testing',
- #                     'Baseline')
+ scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios_DEC'
+ yrs<-c(2007:2021)
+
+ scenario_list<-c('Baseline',
+                  '1.1. Soil Testing',
+                  '1.2. Variable Rate Fertilizer',
+                  '1.3. Subsurface Nutrient Application',
+                  '1.4. Manure Incorporation',
+                  '1.6. Cover Crops',
+                  '1.7. Drainage water management',
+                  '1.8. Edge-of-field buffers')
+
+
+
+ levels_hru_plots<-c('Wetlands lit values',
+                     '1.9. Wetlands',
+                     '1.8. Edge-of-field buffers',
+                     '1.7. Drainage water management',
+                     '1.6. Cover Crops',
+   '1.4. Manure Incorporation',
+   '1.3. Subsurface Nutrient Application',
+   '1.2. Variable Rate Fertilizer',
+   '1.1. Soil Testing')
+
+
+ levels_rch_plots<-c('Wetlands lit values',
+                     '1.9. Wetlands',
+                     '1.8. Edge-of-field buffers',
+                     '1.7. Drainage water management',
+                     '1.6. Cover Crops',
+                     '1.4. Manure Incorporation',
+                     '1.3. Subsurface Nutrient Application',
+                     '1.2. Variable Rate Fertilizer',
+                     '1.1. Soil Testing',
+                     'Baseline')
 
 headers_hru<-c("LULC",  "HRU"     ,  "GIS"  ,"SUB",  "MGT" , "MON"  , "AREAkm2"      ,"ETmm",  
            "SW_ENDmm"    ,"PERCmm","SURQ_CNTmm" ,"LATQGENmm"    ,"GW_Qmm"    ,"WYLDmm"   ,
            "QTILEmm" ,"SOLPkg/ha" ,"LATQCNTmm" ,"ORGPkg/ha" ,"SEDPkg/ha", "TNO3kg/ha", 
-           "ORGNkg/ha","NSURQkg/ha",  "PUPkg/ha" ,"P_GWkg/ha",    "P_STRS",   "YLDt/ha","TILEPkg/ha")
+           "ORGNkg/ha","NSURQkg/ha",  "PUPkg/ha" ,"P_GWkg/ha",    "P_STRS",   "YLDt/ha","TVAPkg/ha")
 
 # Folder structure should be
 
@@ -295,7 +293,7 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
   
   # March - July, all HRUs
   add_df<-hru_output %>% 
-    filter(!(YR %in% 'all years'), !(MON==YR) , Scen_Change_HRU==1, MON %in% c(3:7)) %>% 
+    filter(!(YR %in% 'all years'), !(MON==YR) , MON %in% c(3:7)) %>% 
     group_by(variable,YR) %>% # remove grouping by GIS
     summarize(value=sum(value),value_b=sum(value_b)) %>% # combine outputs from all HRUs for Mar-July
     ungroup() %>% 
@@ -404,6 +402,9 @@ hru_marjul %>%
 
 setwd(scenario_dir)
 ggsave('hru_marjul_abs.png',last_plot(),height=150,width=500,units='mm')
+
+write.csv(hru_annual,'hru_annual.csv',row.names=F)
+write.csv(hru_marjul,'hru_marjul.csv',row.names=F)
   
 }
 
