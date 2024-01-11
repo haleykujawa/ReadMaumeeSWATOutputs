@@ -10,7 +10,7 @@ library(here)
 ReadHRUoutputs<-'yes'
 ReadRCHoutputs<-'no'
 
-run_key<-'' # save as unique outputs so they don't get overwritten
+run_key<-'current' # save as unique outputs so they don't get overwritten
 
 #### HABRI OLEC inputs ####
 #testing
@@ -43,13 +43,13 @@ run_key<-'' # save as unique outputs so they don't get overwritten
  yrs<-c(2007:2021)
 
  scenario_list<-c('Baseline',
-                  '1.1. Soil Testing',
+                  # '1.1. Soil Testing',
                   '1.2. Variable Rate Fertilizer',
-                  '1.3. Subsurface Nutrient Application',
-                  '1.4. Manure Incorporation',
-                  '1.6. Cover Crops',
-                  '1.7. Drainage water management',
-                  '1.8. Edge-of-field buffers')
+                  # '1.3. Subsurface Nutrient Application',
+                  # '1.4. Manure Incorporation',
+                  '1.6. Cover Crops') #,
+                  # '1.7. Drainage water management',
+                  # '1.8. Edge-of-field buffers')
 
 
 
@@ -226,7 +226,7 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
            totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% # extra slide 
     
     # remove unneeded variables
-    select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
+    select(-c(LULC, SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% # remove LULC as it returns NA if baseline and scenario joined but managment changed
     
     # change from kg/ha/yr to kg/yr
     rowwise() %>% 
@@ -239,11 +239,11 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
            `TVAPkg/ha`=`TVAPkg/ha`*AREAkm2*100) %>% 
     ungroup() %>% 
     
-    gather(variable,value,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-Scen_Change_HRU,-YR)  #,-YR,-SOL_SOLP_0_5
+    gather(variable,value,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-Scen_Change_HRU,-YR)  #,-YR,-SOL_SOLP_0_5
     # mutate(scenario=scen)
   
   
-  hru_output<-left_join(baseline_hru,add_df,by=c("variable","LULC","HRU","GIS","SUB","MGT","MON","YR","AREAkm2"))
+  hru_output<-left_join(baseline_hru,add_df,by=c("variable","HRU","GIS","SUB","MGT","MON","YR","AREAkm2"))
   
   rm(add_df,hru_table) # clear memory 
   
@@ -328,7 +328,7 @@ hru_annual %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position=position_dodge(0.5),color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
   scale_fill_manual(values=c('all HRUs'='grey','changed HRUs only'='white'))+
     coord_flip()+
@@ -346,7 +346,7 @@ hru_marjul %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position=position_dodge(0.5),color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
   scale_fill_manual(values=c('all HRUs'='grey','changed HRUs only'='white'))+
   coord_flip()+
@@ -371,7 +371,7 @@ hru_annual %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
+  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
   xlab("")+ylab("Average annual total loss from changed HRUs")+
   scale_fill_manual(values=c('value_b'='grey','value'='white'),labels=c('value_b'='Baseline','value'='Scenario'))+
   coord_flip()+
@@ -391,7 +391,7 @@ hru_marjul %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
+  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
   xlab("")+ylab("Average March-July total loss from changed HRUs")+
   scale_fill_manual(values=c('value_b'='grey','value'='white'),labels=c('value_b'='Baseline','value'='Scenario'))+
   coord_flip()+
@@ -403,7 +403,7 @@ hru_marjul %>%
         axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 setwd(scenario_dir)
-ggsave(paste0('hru_marjul_abs',run_key,'.png'),last_plot(),height=150,width=500,units='mm')
+ggsave(paste0('hru_marjul_abs_',run_key,'.png'),last_plot(),height=150,width=500,units='mm')
 
 write.csv(hru_annual,paste0('hru_annual_',run_key,'.csv'),row.names=F)
 write.csv(hru_marjul,paste0('hru_marjul_',run_key,'.csv'),row.names=F)
