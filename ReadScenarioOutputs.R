@@ -8,9 +8,9 @@ library(here)
 # assume HRU table in each folder containing a binary column with changed hrus called 'changed_hru'
 
 ReadHRUoutputs<-'yes'
-ReadRCHoutputs<-'no'
+ReadRCHoutputs<-'yes'
 
-run_key<-'current' # save as unique outputs so they don't get overwritten
+run_key<-'wetland_lit_values' # save as unique outputs so they don't get overwritten
 
 #### HABRI OLEC inputs ####
 #testing
@@ -30,50 +30,50 @@ run_key<-'current' # save as unique outputs so they don't get overwritten
 
 
 #### testing w 2 yr hru files #####
-# yrs<-c(2003:2004)
-# scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_test'
-# 
-# scenario_list<-c('Baseline','Scenario 1', 'Scenario 2')
-# 
-# levels_hru_plots<-c('Scenario 1','Scenario 2')
+yrs<-c(2003:2004)
+scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_test'
+
+scenario_list<-c('Baseline','Scenario 1', 'Scenario 2')
+
+levels_hru_plots<-c('Scenario 1','Scenario 2')
 
 
 #### HABRI OLEC inputs ####
- scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios_DEC'
- yrs<-c(2007:2021)
-
- scenario_list<-c('Baseline',
-                  # '1.1. Soil Testing',
-                  '1.2. Variable Rate Fertilizer',
-                  # '1.3. Subsurface Nutrient Application',
-                  # '1.4. Manure Incorporation',
-                  '1.6. Cover Crops') #,
-                  # '1.7. Drainage water management',
-                  # '1.8. Edge-of-field buffers')
-
-
-
- levels_hru_plots<-c('Wetlands lit values',
-                     '1.9. Wetlands',
-                     '1.8. Edge-of-field buffers',
-                     '1.7. Drainage water management',
-                     '1.6. Cover Crops',
-   '1.4. Manure Incorporation',
-   '1.3. Subsurface Nutrient Application',
-   '1.2. Variable Rate Fertilizer',
-   '1.1. Soil Testing')
+#  scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios_DEC'
+#  yrs<-c(2007:2021)
+# 
+#  scenario_list<-c('Baseline',
+#                   # '1.1. Soil Testing',
+#                   # '1.2. Variable Rate Fertilizer',
+#                   # '1.3. Subsurface Nutrient Application',
+#                   # '1.4. Manure Incorporation',
+#                   # '1.6. Cover Crops',
+#                   # '1.7. Drainage water management',
+#                   # '1.8. Edge-of-field buffers')
+# 'Wetlands lit values')
 
 
- levels_rch_plots<-c('Wetlands lit values',
-                     '1.9. Wetlands',
-                     '1.8. Edge-of-field buffers',
-                     '1.7. Drainage water management',
-                     '1.6. Cover Crops',
-                     '1.4. Manure Incorporation',
-                     '1.3. Subsurface Nutrient Application',
-                     '1.2. Variable Rate Fertilizer',
-                     '1.1. Soil Testing',
-                     'Baseline')
+ # levels_hru_plots<-c('Wetlands lit values',
+ #                     '1.9. Wetlands',
+ #                     '1.8. Edge-of-field buffers',
+ #                     '1.7. Drainage water management',
+ #                     '1.6. Cover Crops',
+ #   '1.4. Manure Incorporation',
+ #   '1.3. Subsurface Nutrient Application',
+ #   '1.2. Variable Rate Fertilizer',
+ #   '1.1. Soil Testing')
+ # 
+ # 
+ # levels_rch_plots<-c('Wetlands lit values',
+ #                     '1.9. Wetlands',
+ #                     '1.8. Edge-of-field buffers',
+ #                     '1.7. Drainage water management',
+ #                     '1.6. Cover Crops',
+ #                     '1.4. Manure Incorporation',
+ #                     '1.3. Subsurface Nutrient Application',
+ #                     '1.2. Variable Rate Fertilizer',
+ #                     '1.1. Soil Testing',
+ #                     'Baseline')
 
 headers_hru<-c("LULC",  "HRU"     ,  "GIS"  ,"SUB",  "MGT" , "MON"  , "AREAkm2"      ,"ETmm",  
            "SW_ENDmm"    ,"PERCmm","SURQ_CNTmm" ,"LATQGENmm"    ,"GW_Qmm"    ,"WYLDmm"   ,
@@ -156,6 +156,13 @@ hru_output<-c()
 # hru_table<-read.csv(paste0(wd,'//',hru_table_name),sep=",") %>% 
 #   select(HRU_GIS,SOL_SOLP_0_5)
 
+### baseline hru table ###
+wd<-paste0(scenario_dir,'//','Baseline')
+hru_table_name<-list.files(wd)[grep('.txt',list.files(wd))] # assume hru table is only txt in folder
+
+hru_table<-read.csv(paste0(wd,'//',hru_table_name),sep="\t") %>% 
+  select(HRU_GIS,SOL_SOLP_0_5,Tile_Drain)
+
 baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'output.hru') %>% 
   mutate(across(!LULC, as.numeric)) %>% # convert everything except lulc to numeric
   
@@ -170,10 +177,16 @@ baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'outp
          totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% 
   
   # remove unneeded variables
-  select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% 
+  select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) 
+
+# create table needed for STP / P loss
+stp_table<-left_join(baseline_hru, hru_table, by=c("GIS"="HRU_GIS"))
+write.csv(stp_table,"STP_table.csv",row.names=F)
+rm(stp_table,hru_table)
   
   
   # change from kg/ha/yr to kg/yr
+baseline_hru<-baseline_hru %>% 
   rowwise() %>% 
   mutate(totp=totp*AREAkm2*100,
          totsolp=totsolp*AREAkm2*100,
@@ -253,7 +266,7 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
   # annual HRU - changed HRUs only
   # sum annual amount for all HRUs, take avg of all years, calculate % difference
   add_df<-hru_output %>% 
-    filter(YR %in% yrs , Scen_Change_HRU==1) %>% 
+    filter(MON %in% yrs , Scen_Change_HRU==1) %>% 
     group_by(variable,YR) %>% # remove grouping by GIS
     summarize(value=sum(value),value_b=sum(value_b)) %>% # combine outputs from all HRUs
     ungroup() %>% 
@@ -267,7 +280,7 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
   
   # annual HRU - all HRUs
   add_df<-hru_output %>% 
-    filter(YR %in% yrs) %>% 
+    filter(MON %in% yrs) %>% 
     group_by(variable,YR) %>% # remove grouping by GIS
     summarize(value=sum(value),value_b=sum(value_b)) %>% # combine outputs from all HRUs
     ungroup() %>% 
@@ -328,7 +341,7 @@ hru_annual %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',width=0.7,color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
   scale_fill_manual(values=c('all HRUs'='grey','changed HRUs only'='white'))+
     coord_flip()+
@@ -346,7 +359,7 @@ hru_marjul %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
+  ggplot(.,aes(x=scenario,y=percent_change,fill=HRU))+geom_bar(stat='identity',position='dodge',width=0.7,color='black')+facet_wrap(~variable,labeller=labeller(variable=variable_labs),scales='free_x')+
   xlab("")+ylab("Change from baseline (%)")+
   scale_fill_manual(values=c('all HRUs'='grey','changed HRUs only'='white'))+
   coord_flip()+
@@ -371,7 +384,7 @@ hru_annual %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
+  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',width=0.7,color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
   xlab("")+ylab("Average annual total loss from changed HRUs")+
   scale_fill_manual(values=c('value_b'='grey','value'='white'),labels=c('value_b'='Baseline','value'='Scenario'))+
   coord_flip()+
@@ -391,7 +404,7 @@ hru_marjul %>%
   filter(variable %in% c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>%
   mutate(variable=factor(variable,ordered=T, levels=c('QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn'))) %>% 
   mutate(scenario=factor(scenario,ordered=T,levels=levels_hru_plots)) %>% 
-  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',width=0.5,color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
+  ggplot(.,aes(x=scenario,y=value,fill=b_s))+geom_bar(stat='identity',position='dodge',width=0.7,color='black')+facet_grid(HRU~variable,labeller=labeller(variable=variable_labs),scales='free')+
   xlab("")+ylab("Average March-July total loss from changed HRUs")+
   scale_fill_manual(values=c('value_b'='grey','value'='white'),labels=c('value_b'='Baseline','value'='Scenario'))+
   coord_flip()+
