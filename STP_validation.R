@@ -116,7 +116,10 @@ readSWATtxt<-function(wd,headers,output_file){
            SURQ_CNTmm=SURQ_CNTmm*AREAkm2*10^6/1000,
            `SOLPkg/ha`=`SOLPkg/ha`*AREAkm2*100,
            `TVAPkg/ha`=`TVAPkg/ha`*AREAkm2*100) %>% 
-    ungroup() # %>%
+    ungroup() %>% 
+    
+    # Only look at row-crop agricultural HRUs
+    filter(LULC %in% c("CORN","SOYB","RYE","WWHT"))
     
     # gather(variable,value_b,-LULC,-HRU,-GIS,-SUB,-MGT,-MON,-AREAkm2,-YR) #%>% #,-YR,-SOL_SOLP_0_5
     
@@ -129,7 +132,8 @@ readSWATtxt<-function(wd,headers,output_file){
   
     #### extract only mar-jul hru outputs ####
   mar_jul_hru<-baseline_hru %>% 
-    filter(!(YR %in% 'all years'), !(MON==YR) , MON %in% c(3:7)) %>% 
+    filter(!(YR %in% 'all years'), !(MON==YR) , MON %in% c(3:7),
+           c()) %>% 
     
     # create summary of mar-jul outputs for each hru, every year
     group_by(YR,GIS) %>% 
