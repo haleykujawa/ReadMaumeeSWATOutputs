@@ -139,6 +139,8 @@ readSWATtxt<-function(wd,headers,output_file){
               QTILEmm=sum(QTILEmm), # m3
               SURQ_CNTmm=sum(SURQ_CNTmm),
               `SOLPkg/ha`=sum(`SOLPkg/ha`),
-              `TVAPkg/ha`=sum(`TVAPkg/ha`))
+              `TVAPkg/ha`=sum(`TVAPkg/ha`),
+              SOL_SOLP_0_5=mean(SOL_SOLP_0_5), # lookup values
+              Tile_Drain=mean(Tile_Drain)) # lookup values
   
   write.csv(mar_jul_hru,'marjul_hru_output.csv')
