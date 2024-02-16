@@ -7,7 +7,7 @@ library(here)
 # best to run in command prompt
 # set working directory to ReadMaumeeSWATOutputs (cd Path//To//ReadMaumeeSWATOutputs)
 # To run script
-# Path//to//R ReadScenarioOutputs.R
+# "Path//to//R" ReadScenarioOutputs.R
 # e.g., "C:\Program Files\R\R-4.2.2\bin\x64\Rscript.exe" ReadScenarioOutputs.R
 
 #### USER INPUTS ####
