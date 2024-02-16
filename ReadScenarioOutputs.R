@@ -820,8 +820,13 @@ write.csv(obs_lookup,'bias_c_factors.csv')
 # 179 and 235
 
 # BIAS CORRECTION FOR RCH OUTPUTS (lines 527-624)
-# Bias correction factors are calculated as
-# mean(obs average annual)/mean(sim average annual)
+# Bias correction factors are calculated for each variable as:
+# bias_c = mean(obs average annual)/mean(sim baseline average annual)
+
+# This is applied as follows:
+# baseline = baseline average annual * bias_c = obs average annual
+# scenario_1 (bias corrected) = scenario_1 average annual * bias_c 
+
 # This factor is calculated for each variable -- discharge, tp, solp, tn
 # headers should contain at least 'year, month, day, variable values'
 # 'year' and 'month' must be labeled exactly (all lowercase), and the value column must be the 4th column (doesn't need specific label)
