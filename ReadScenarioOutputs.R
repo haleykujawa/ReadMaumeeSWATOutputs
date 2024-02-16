@@ -32,6 +32,9 @@ library(here)
 # The code assumes the hru table is the only txt in the folder. 
 # assume HRU table in each folder containing a binary column with changed hrus (0/1) called 'changed_hru'
 
+# Reading HRU outputs take a long time (hours) depending on the number of scenarios
+# if you want to read them, change to 'yes' (must be all lowercase)
+# otherwise, any other value will prevent the hru or rch outputs from being read
 ReadHRUoutputs<-'yes'
 ReadRCHoutputs<-'yes'
 
@@ -809,14 +812,14 @@ write.csv(obs_lookup,'bias_c_factors.csv')
 #### Additional notes to change anything in the script #####
 
 # TO CHANGE HRU VARIABLES
-# add variable to selection of columns in line 195 and 257
-# add variable to naming convention in lines 349, 350
-# add variable to filter function and factor list for each HRU graphs, eg 356-357
+# add variable to selection of columns in line 198 and 260
+# add variable to naming convention in lines 352, 353
+# add variable to filter function and factor list for each HRU graphs, eg 359-360
 
 # CHANGE FUNCTION THAT FINDS HRU TABLE / ASSUMES IS THE ONLY TXT FILE
-# 176 and 232
+# 179 and 235
 
-# BIAS CORRECTION FOR RCH OUTPUTS (lines 524-621)
+# BIAS CORRECTION FOR RCH OUTPUTS (lines 527-624)
 # Bias correction factors are calculated as
 # mean(obs average annual)/mean(sim average annual)
 # This factor is calculated for each variable -- discharge, tp, solp, tn
