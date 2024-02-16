@@ -4,99 +4,114 @@ library(tidyverse)
 library(gridExtra)
 library(here)
 
+# best to run in command prompt
+# set working directory to ReadMaumeeSWATOutputs (cd Path//To//ReadMaumeeSWATOutputs)
+# To run script
+# Path//to//R ReadScenarioOutputs.R
+# e.g., "C:\Program Files\R\R-4.2.2\bin\x64\Rscript.exe" ReadScenarioOutputs.R
 
-# assume HRU table in each folder containing a binary column with changed hrus called 'changed_hru'
+#### USER INPUTS ####
+
+# Folder structure should be as follows
+# Baseline folder needs to be called 'Baseline'
+# All other folders can have any name
+
+# scenario_dir
+  # Baseline
+      # output.hru
+      # hru_table.txt
+  # Scenario 1
+      # output.hru
+      # hru_table.txt # assume hru table is only txt in folder
+      # output.rch
+  # Scenario 2
+      # output.hru
+      # hru_table.txt
+
+
+# The code assumes the hru table is the only txt in the folder. 
+# assume HRU table in each folder containing a binary column with changed hrus (0/1) called 'changed_hru'
 
 ReadHRUoutputs<-'yes'
 ReadRCHoutputs<-'yes'
 
-run_key<-'wetland_lit_values' # save as unique outputs so they don't get overwritten
-
-#### HABRI OLEC inputs ####
-#testing
-# scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios'
-# yrs<-c(2007:2021)
-# 
-# scenario_list<-c('Baseline',
-#                  '1.6. Cover Crops')
-# 
-# 
-# 
-# levels_hru_plots<-c('1.6. Cover Crops')
-# 
-# 
-# levels_rch_plots<-c('1.6. Cover Crops',
-#                     'Baseline')
+# run key that will be pasted with output name (csv files, graphs) 
+# so they are not overwritten when re-running with new data
+# can be basic numbers/characters
+run_key<-'01262024' 
 
 
-#### testing w 2 yr hru files #####
-yrs<-c(2003:2004)
-scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_test'
+# Path to scenarios. Ensure use of // or \ in path directory
+ scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios_DEC'
 
-scenario_list<-c('Baseline','Scenario 1', 'Scenario 2')
+# years model was run for
+ yrs<-c(2007:2021)
 
-levels_hru_plots<-c('Scenario 1','Scenario 2')
-
-
-#### HABRI OLEC inputs ####
-#  scenario_dir<-'D:\\Maumee model\\HABRI_OLEC_Scenarios_DEC'
-#  yrs<-c(2007:2021)
-# 
-#  scenario_list<-c('Baseline',
-#                   # '1.1. Soil Testing',
-#                   # '1.2. Variable Rate Fertilizer',
-#                   # '1.3. Subsurface Nutrient Application',
-#                   # '1.4. Manure Incorporation',
-#                   # '1.6. Cover Crops',
-#                   # '1.7. Drainage water management',
-#                   # '1.8. Edge-of-field buffers')
+ # List of folders with scenario data
+ # There needs to be a Baseline folder
+ 
+ scenario_list<-c('Baseline',
+                  '1.1. Soil Testing',
+                  '1.2. Variable Rate Fertilizer',
+                  '1.3. Subsurface Nutrient Application',
+                  '1.4. Manure Incorporation',
+                  '1.6. Cover Crops',
+                  '1.7. Drainage water management',
+                  '1.8. Edge-of-field buffers')
 # 'Wetlands lit values')
+ 
 
+# list order of scenarios on plots in reverse order
+# all hru plots data plotted is relative to the baseline, i.e., don't need baseline listed
+# ensure there is a matching value for each scenario in 'scenario_list', or will show up as NA on graphs
+ levels_hru_plots<-c('Wetlands lit values',
+                     '1.9. Wetlands',
+                     '1.8. Edge-of-field buffers',
+                     '1.7. Drainage water management',
+                     '1.6. Cover Crops',
+   '1.4. Manure Incorporation',
+   '1.3. Subsurface Nutrient Application',
+   '1.2. Variable Rate Fertilizer',
+   '1.1. Soil Testing')
 
- # levels_hru_plots<-c('Wetlands lit values',
- #                     '1.9. Wetlands',
- #                     '1.8. Edge-of-field buffers',
- #                     '1.7. Drainage water management',
- #                     '1.6. Cover Crops',
- #   '1.4. Manure Incorporation',
- #   '1.3. Subsurface Nutrient Application',
- #   '1.2. Variable Rate Fertilizer',
- #   '1.1. Soil Testing')
- # 
- # 
- # levels_rch_plots<-c('Wetlands lit values',
- #                     '1.9. Wetlands',
- #                     '1.8. Edge-of-field buffers',
- #                     '1.7. Drainage water management',
- #                     '1.6. Cover Crops',
- #                     '1.4. Manure Incorporation',
- #                     '1.3. Subsurface Nutrient Application',
- #                     '1.2. Variable Rate Fertilizer',
- #                     '1.1. Soil Testing',
- #                     'Baseline')
+ # list order of scenarios on plots in reverse order
+ # rch plots do include Baseline and should be the last value in the vector if you want it to be listed first
+ levels_rch_plots<-c('Wetlands lit values',
+                     '1.9. Wetlands',
+                     '1.8. Edge-of-field buffers',
+                     '1.7. Drainage water management',
+                     '1.6. Cover Crops',
+                     '1.4. Manure Incorporation',
+                     '1.3. Subsurface Nutrient Application',
+                     '1.2. Variable Rate Fertilizer',
+                     '1.1. Soil Testing',
+                     'Baseline')
 
+ # HRU headers
+ # Note this code is made to plot surface flow, tile flow, soluble p (surface and tile), total p, and total n
+ # it will need at minimum the following:
+ # SURQ_CNTmm, QTILEmm, SOLPkg/ha, ORGPkg/ha, SEDPkg/ha, TNO3kg/ha, ORGNkg/ha, NSURQkg/ha, TVAPkg/ha (tile p)
 headers_hru<-c("LULC",  "HRU"     ,  "GIS"  ,"SUB",  "MGT" , "MON"  , "AREAkm2"      ,"ETmm",  
            "SW_ENDmm"    ,"PERCmm","SURQ_CNTmm" ,"LATQGENmm"    ,"GW_Qmm"    ,"WYLDmm"   ,
            "QTILEmm" ,"SOLPkg/ha" ,"LATQCNTmm" ,"ORGPkg/ha" ,"SEDPkg/ha", "TNO3kg/ha", 
            "ORGNkg/ha","NSURQkg/ha",  "PUPkg/ha" ,"P_GWkg/ha",    "P_STRS",   "YLDt/ha","TVAPkg/ha")
 
-# Folder structure should be
-
-# Scenario dir
-  # Scenario 1
-      # output.hru
-      # hru_table.txt
-  # Scenario 2
-      # output.hru
-      # hru_table.txt
-  # baseline
-      # output.hru
-      # hru_table.txt
+# RCH headers
+# note this code is made to plot TP, DRP, and TN, and will need at minimum the following:
+# MINP_OUTkg, TOT Pkg, TOT Nkg, FLOW_OUTcms
+rch_headers<-c('RCH'      ,'GIS',   'MON',     'AREAkm2',  'FLOW_INcms', 'FLOW_OUTcms',     'EVAPcms',    
+               'TLOSScms',  'SED_INtons', 'SED_OUTtons', 'SEDCONCmg/kg',   'ORGN_INkg',  'ORGN_OUTkg',   'ORGP_INkg',  'ORGP_OUTkg',    
+               'NO3_INkg',   'NO3_OUTkg',    'NH4_INkg',   'NH4_OUTkg',    'NO2_INkg',   'NO2_OUTkg',   'MINP_INkg',  
+               'MINP_OUTkg',   'CHLA_INkg',  'CHLA_OUTkg',   'CBOD_INkg',  'CBOD_OUTkg',  'DISOX_INkg',
+               'DISOX_OUTkg', 'SOLPST_INmg', 'SOLPST_OUTmg', 'SORPST_INmg', 'SORPST_OUTmg',  'REACTPSTmg',    'VOLPSTmg',  'SETTLPSTmg',
+               'RESUSP_PSTmg', 'DIFFUSEPSTmg', 'REACBEDPSTmg',   'BURYPSTmg',   'BED_PSTmg', 'BACTP_OUTct', 'BACTLP_OUTct',  'CMETAL#1kg',  
+               'CMETAL#2kg',  'CMETAL#3kg',     'TOT Nkg',     'TOT Pkg', 'NO3ConcMg/l',    'WTMPdegc')
 
 
-# function to read hru and rch outputs
+# ADDITIONAL TEXT TO MAKE EDITS TO HRU VARIABLES, BIAS CORRECTION AT BOTTOM OF SCRIPT
 
 
+#### Function to read hru and rch outputs ####
 
 readSWATtxt<-function(wd,headers,output_file){
   
@@ -177,7 +192,7 @@ baseline_hru<-readSWATtxt(paste0(scenario_dir,'//','baseline'),headers_hru,'outp
          totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% 
   
   # remove unneeded variables
-  select(-c(SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) 
+  select(c('LULC','HRU','GIS','SUB','MGT','MON','AREAkm2','YR','QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) 
 
 # create table needed for STP / P loss
 stp_table<-left_join(baseline_hru, hru_table, by=c("GIS"="HRU_GIS"))
@@ -239,7 +254,8 @@ for (scen in scenario_list[!(scenario_list %in% 'Baseline')]){
            totn=`TNO3kg/ha`+`ORGNkg/ha`+`NSURQkg/ha`) %>% # extra slide 
     
     # remove unneeded variables
-    select(-c(LULC, SW_ENDmm, LATQGENmm , GW_Qmm, LATQCNTmm,`P_GWkg/ha`,`YLDt/ha`,`P_STRS`,`PUPkg/ha`)) %>% # remove LULC as it returns NA if baseline and scenario joined but managment changed
+    select(c('HRU','GIS','SUB','MGT','MON','AREAkm2','YR',
+             'QTILEmm','SURQ_CNTmm','SOLPkg/ha','TVAPkg/ha','totsolp','totp','totn')) %>% # remove LULC as it returns NA if baseline and scenario joined but managment changed
     
     # change from kg/ha/yr to kg/yr
     rowwise() %>% 
@@ -427,14 +443,6 @@ write.csv(hru_marjul,paste0('hru_marjul_',run_key,'.csv'),row.names=F)
 ##################### RCH OUTPUTS ##########################################################
 if (ReadRCHoutputs=='yes'){
 
-rch_headers<-c('RCH'      ,'GIS',   'MON',     'AREAkm2',  'FLOW_INcms', 'FLOW_OUTcms',     'EVAPcms',    
-               'TLOSScms',  'SED_INtons', 'SED_OUTtons', 'SEDCONCmg/kg',   'ORGN_INkg',  'ORGN_OUTkg',   'ORGP_INkg',  'ORGP_OUTkg',    
-               'NO3_INkg',   'NO3_OUTkg',    'NH4_INkg',   'NH4_OUTkg',    'NO2_INkg',   'NO2_OUTkg',   'MINP_INkg',  
-               'MINP_OUTkg',   'CHLA_INkg',  'CHLA_OUTkg',   'CBOD_INkg',  'CBOD_OUTkg',  'DISOX_INkg',
-               'DISOX_OUTkg', 'SOLPST_INmg', 'SOLPST_OUTmg', 'SORPST_INmg', 'SORPST_OUTmg',  'REACTPSTmg',    'VOLPSTmg',  'SETTLPSTmg',
-               'RESUSP_PSTmg', 'DIFFUSEPSTmg', 'REACBEDPSTmg',   'BURYPSTmg',   'BED_PSTmg', 'BACTP_OUTct', 'BACTLP_OUTct',  'CMETAL#1kg',  
-               'CMETAL#2kg',  'CMETAL#3kg',     'TOT Nkg',     'TOT Pkg', 'NO3ConcMg/l',    'WTMPdegc')
-
 rch_output_monthly<-c()
 rch_output_annual<-c()
 
@@ -502,7 +510,7 @@ annual_MAW_allYrs<-rch_output_monthly %>%
 setwd(scenario_dir)
 annual_MAW_allYrs %>% 
   pivot_wider(names_from=c(scenario),values_from=c(value)) %>% 
-  write.csv(.,'annual_RCH_allYrs.csv',row.names=F)
+  write.csv(.,'annual_RCH_allYrs.csv',row.names=F) # paste key
 
 # summarize all 20 years
 annual_MAW<-annual_MAW_allYrs %>% 
@@ -781,7 +789,6 @@ annual_TP<-annual_MAW %>%
                                                            r = 10,  # Right margin
                                                            b = 5,  # Bottom margin
                                                            l = 5, unit='mm'))  # Left margin)
-annual_TP
 
 
 annual_plot<-grid.arrange(annual_DRP,annual_TP,nrow=1,widths=c(1.5,1))
@@ -798,3 +805,25 @@ write.csv(annual_MAW,paste0('annualRCH_',run_key,'.csv'),row.names=F)
 
 write.csv(obs_lookup,'bias_c_factors.csv')
 }
+
+#### Additional notes to change anything in the script #####
+
+# TO CHANGE HRU VARIABLES
+# add variable to selection of columns in line 195 and 257
+# add variable to naming convention in lines 349, 350
+# add variable to filter function and factor list for each HRU graphs, eg 356-357
+
+# CHANGE FUNCTION THAT FINDS HRU TABLE / ASSUMES IS THE ONLY TXT FILE
+# 176 and 232
+
+# BIAS CORRECTION FOR RCH OUTPUTS (lines 524-621)
+# Bias correction factors are calculated as
+# mean(obs average annual)/mean(sim average annual)
+# This factor is calculated for each variable -- discharge, tp, solp, tn
+# headers should contain at least 'year, month, day, variable values'
+# 'year' and 'month' must be labeled exactly (all lowercase), and the value column must be the 4th column (doesn't need specific label)
+# This data could be daily or monthly timeseries. If it is daily it will be summarized to monthly values.
+# Additional variables can be added to this data by adding them to the 'lookup.csv' file
+# The SWAT_OUT variable should match the header in the reach file and the obs should be the name used to label the file
+# The file name should be 'variablename_BOA.csv'
+
